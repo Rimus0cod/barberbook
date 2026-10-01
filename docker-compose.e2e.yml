@@ -41,7 +41,7 @@ services:
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: e2e-local-only-admin-password
       TELEGRAM_MODE: disabled
-      FRONTEND_URL: http://localhost:${E2E_FRONTEND_PORT:-3300}
+      FRONTEND_URL: http://127.0.0.1:${E2E_FRONTEND_PORT:-3300}
       BACKEND_PUBLIC_URL: http://localhost:${E2E_BACKEND_PORT:-3301}
       PAYMENT_PROVIDER: mock
       PAYMENT_RECONCILIATION_INTERVAL_MS: 300000
