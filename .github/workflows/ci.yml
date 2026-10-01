@@ -86,6 +86,10 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:smoke
+      - name: Verify Docker Engine and Compose
+        run: |
+          docker info
+          docker compose version
       - run: npm run test:e2e:full
 
   compose:
@@ -94,8 +98,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Prepare development env file for compose validation
+        run: |
+          cp backend/.env.example backend/.env
+
       - name: Validate development compose
-        run: docker compose -f docker-compose.yml config
+        run: docker compose --env-file backend/.env -f docker-compose.yml config
 
       - name: Validate production compose
         env:
@@ -106,7 +114,7 @@ jobs:
           FRONTEND_URL: https://example.com
           BACKEND_PUBLIC_URL: https://example.com
           PAYMENT_PROVIDER: mock
-        run: docker compose -f docker-compose.prod.yml config
+        run: docker compose --env-file backend/.env -f docker-compose.prod.yml config
 
       - name: Ensure production compose does not start dev servers
         env:
@@ -119,7 +127,7 @@ jobs:
           PAYMENT_PROVIDER: mock
         shell: bash
         run: |
-          rendered="$(docker compose -f docker-compose.prod.yml config)"
+          rendered="$(docker compose --env-file backend/.env -f docker-compose.prod.yml config)"
           if echo "$rendered" | grep -E 'start:dev|vite dev' >/dev/null; then
             echo "Production compose contains dev server commands"
             exit 1
