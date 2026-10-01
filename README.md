@@ -1,287 +1,87 @@
 # BarberBook Studio
 
-BarberBook Studio - full-stack платформа для барбершопа: публичная запись, личный кабинет клиента, админ-панель, платежи, Telegram-уведомления, мониторинг и production-окружение на Docker Compose.
+Production-oriented full-stack booking platform for barbershops. It covers the booking lifecycle from service selection and live availability through temporary holds, payment confirmation, and client self-service.
 
-## Что умеет проект
+[![CI](https://github.com/Rimus0cod/site/actions/workflows/ci.yml/badge.svg?branch=portfolio-improvements)](https://github.com/Rimus0cod/site/actions/workflows/ci.yml?query=branch%3Aportfolio-improvements)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![React](https://img.shields.io/badge/React-18-149eca)
+![NestJS](https://img.shields.io/badge/NestJS-11-ea2845)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169e1)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
+![Playwright](https://img.shields.io/badge/Playwright-E2E-2ead33)
 
-- Публичная запись клиента: выбор услуги, барбера, даты и времени.
-- Механизм `booking hold`: слот сначала резервируется, затем подтверждается через оплату.
-- Кабинет клиента: регистрация/вход по телефону и PIN, просмотр и управление записями.
-- Подтверждение, перенос и отмена записи по токену доступа.
-- Админ-панель: барберы, услуги, графики, бронирования.
-- Платежные провайдеры: `mock`, `stripe`, `liqpay`.
-- Фоновый `worker` для Telegram polling, напоминаний, reconciliation и служебных задач.
-- Production-стек с `nginx`, `postgres`, `redis`, Prometheus, Alertmanager и автоматическими бэкапами.
+[Live demo: not deployed yet](#live-demo) · [Architecture](#architecture) · [Local setup](#local-setup)
 
-## Архитектура
+## Live demo
+
+There is no public demo URL yet. The deployment checklist is in [docs/demo-deployment.md](docs/demo-deployment.md); the current production configuration intentionally rejects mock payments, so public demo deployment needs a reviewed payment-mode decision first.
+
+## Screenshots
+
+Real interface screenshots are not included yet. Docker Engine is unavailable in the current capture environment, and there is no live demo to capture from. No placeholder or generated UI images are presented as product screenshots. Capture requirements and target viewports are documented in [docs/screenshots/README.md](docs/screenshots/README.md).
+
+## Highlights
+
+- Conflict-safe booking workflow with expiring temporary holds
+- Mock, Stripe, and LiqPay payment-provider adapters
+- Client and admin authentication, plus booking management
+- Rescheduling and cancellation
+- Redis-backed availability and a separate background worker
+- Telegram notifications and scheduled jobs
+- Rate limiting and CSRF protection
+- Prometheus metrics, Alertmanager configuration, and automated PostgreSQL backups
+- Dockerized production deployment behind Nginx
+- Real full-stack Playwright E2E against NestJS, PostgreSQL, Redis, and mock payment
+
+## Tech stack
+
+| Area | Technologies |
+| --- | --- |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Zustand |
+| Backend | NestJS 11, TypeScript, TypeORM, JWT/cookie authentication |
+| Data | PostgreSQL 15, Redis 7 |
+| Payments and notifications | Mock / Stripe / LiqPay adapters, Telegram Bot API |
+| Operations | Docker Compose, Nginx, Prometheus, Alertmanager, PostgreSQL backup scripts |
+| Validation | TypeScript checks, backend tests, Playwright, Docker Compose and image builds |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser[Browser] -->|HTTPS| Nginx[Nginx reverse proxy]
+    Nginx -->|UI| React[React frontend]
+    React -->|/api/v1| Nginx
+    Nginx -->|API| API[NestJS API]
+    API --> PostgreSQL[(PostgreSQL)]
+    API --> Redis[(Redis)]
+    API --> Payments[Mock / Stripe / LiqPay]
+    Worker[Background worker] --> PostgreSQL
+    Worker --> Redis
+    Worker --> Telegram[Telegram]
+    Prometheus[Prometheus] -->|scrapes metrics| API
+    Prometheus --> Alertmanager[Alertmanager]
+```
+
+The full explanation is in [docs/architecture.md](docs/architecture.md).
+
+## Quality & Testing
+
+- Frontend TypeScript validation, lint, and production build
+- Backend lint, tests, and production build
+- Dependency audit
+- Docker Compose configuration validation and Docker image builds
+- Frontend smoke tests for route reachability and basic rendering
+- Full-stack Playwright booking flow against real services
+
+The full-stack E2E runs the actual React UI against NestJS, PostgreSQL, Redis, and `PAYMENT_PROVIDER=mock`; it verifies:
 
 ```text
-Frontend (React/Vite)
-        |
-        v
-      Nginx
-        |
-   +----+-------------------+
-   |                        |
-   v                        v
-Frontend static         Backend API (NestJS)
-                              |
-                    +---------+---------+
-                    |                   |
-                    v                   v
-                 PostgreSQL           Redis
-                              |
-                              v
-                           Worker
+service → barber → available slot → booking hold → mock payment → confirmed booking
 ```
 
-## Стек
+The latest successful Actions run for the portfolio branch is [CI](https://github.com/Rimus0cod/site/actions/runs/36908688310).
 
-### Frontend
-
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- React Router
-- TanStack Query
-- Zustand
-- React Hook Form
-- Zod
-
-### Backend
-
-- NestJS 10
-- TypeScript
-- TypeORM
-- PostgreSQL 15
-- Redis 7
-- JWT auth
-- Cookie + CSRF защита
-- Telegram Bot API
-- Prometheus metrics
-
-### Infra
-
-- Docker
-- Docker Compose
-- Nginx
-- Prometheus
-- Alertmanager
-
-## Структура репозитория
-
-```text
-backend/      NestJS API, миграции, сущности, worker
-frontend/     React-приложение клиента и админки
-nginx/        production reverse proxy и TLS-конфиг
-monitoring/   Prometheus и Alertmanager
-ops/          скрипты бэкапов и состояние backup freshness
-docs/         дополнительные production-документы
-```
-
-## Основные маршруты
-
-### Клиентская часть
-
-- `/` - главная страница
-- `/booking` - мастер записи
-- `/booking/hold/:id` - этап оплаты / подтверждения холда
-- `/booking/confirm/:id` - страница подтвержденной записи
-- `/account` - кабинет клиента
-
-### Админка
-
-- `/admin/login` - вход администратора
-- `/admin` - дашборд
-- `/admin/barbers` - управление барберами
-- `/admin/services` - управление услугами
-- `/admin/schedule` - графики и исключения
-
-### Служебные endpoint'ы
-
-- `/health` - proxy на readiness check
-- `/health/live` - liveness
-- `/health/ready` - readiness
-- `/api/v1/metrics` - Prometheus metrics
-
-## Быстрый локальный запуск
-
-### 1. Подготовить переменные окружения backend
-
-Создайте файл `backend/.env` на основе примера:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Для Windows PowerShell:
-
-```powershell
-Copy-Item backend\.env.example backend\.env
-```
-
-Минимально проверьте эти значения:
-
-```env
-DB_HOST=postgres
-DB_PORT=5432
-DB_NAME=barbershop
-DB_USER=barber
-DB_PASSWORD=REPLACE_WITH_STRONG_DB_PASSWORD
-JWT_SECRET=REPLACE_WITH_LONG_RANDOM_JWT_SECRET
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=REPLACE_WITH_ADMIN_PASSWORD
-FRONTEND_URL=http://localhost:3000
-BACKEND_PUBLIC_URL=http://localhost:3001
-PAYMENT_PROVIDER=mock
-TELEGRAM_MODE=polling
-```
-
-### 2. Поднять стек через Docker
-
-```bash
-docker compose up --build
-```
-
-После старта будут доступны:
-
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:3001/api/v1`
-- Health: `http://localhost:3001/api/v1/health/live`
-- Metrics: `http://localhost:3001/api/v1/metrics`
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
-
-### 3. Что делает локальный compose
-
-- `backend` выполняет `migration:run`, затем запускает API в watch-режиме.
-- `worker` запускает фоновые задачи отдельно от API.
-- `frontend` стартует Vite dev server.
-- API использует `postgres` и `redis` из compose-сети.
-
-## Запуск без Docker
-
-Подходит, если нужно разрабатывать части системы отдельно. PostgreSQL и Redis при этом должны быть доступны вручную.
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Backend
-
-```bash
-cd backend
-npm install
-npm run migration:run
-npm run start:dev
-```
-
-### Worker
-
-```bash
-cd backend
-npm run start:worker:dev
-```
-
-## Полезные команды
-
-### Frontend
-
-- `npm run dev`
-- `npm run build`
-- `npm run lint`
-- `npm run preview`
-
-### Backend
-
-- `npm run start:dev`
-- `npm run start:worker:dev`
-- `npm run build`
-- `npm run start:prod`
-- `npm run start:worker`
-- `npm run migration:run`
-- `npm run migration:run:prod`
-- `npm run migration:revert`
-- `npm run migration:revert:prod`
-- `npm run seed:admin`
-- `npm run test`
-- `npm run lint`
-
-## Как пользоваться системой
-
-### Клиентский сценарий
-
-1. Откройте `/`.
-2. Перейдите в `/booking`.
-3. Выберите услугу, барбера и свободный слот.
-4. Система создаст `booking hold`.
-5. На странице `/booking/hold/:id` завершите оплату депозита.
-6. После успешной оплаты запись подтверждается и открывается страница `/booking/confirm/:id`.
-7. Доступ к записи сохраняется в локальном кабинете клиента.
-
-### Кабинет клиента
-
-В `/account` доступны два режима:
-
-- регистрация/вход по телефону и PIN;
-- ручное открытие записи по `booking id + token`.
-
-Клиент может:
-
-- просматривать свои сохраненные записи;
-- открыть запись из списка recent access;
-- отменить или перенести запись, если бизнес-правила это позволяют;
-- привязать `telegramUsername` для последующих уведомлений.
-
-### Админский сценарий
-
-1. Откройте `/admin/login`.
-2. Войдите с `ADMIN_EMAIL` и `ADMIN_PASSWORD` из `backend/.env`.
-3. В админке доступны:
-- управление барберами;
-- управление услугами;
-- настройка рабочих графиков и исключений;
-- просмотр и изменение статусов бронирований;
-- создание admin booking.
-
-## Платежи
-
-Проект поддерживает три режима:
-
-- `PAYMENT_PROVIDER=mock` - локальная разработка и тестовый сценарий без внешнего провайдера.
-- `PAYMENT_PROVIDER=stripe` - продовый checkout через Stripe.
-- `PAYMENT_PROVIDER=liqpay` - checkout через LiqPay.
-
-Для локальной разработки по умолчанию используется `mock`.
-
-### Обязательные env для Stripe
-
-```env
-PAYMENT_PROVIDER=stripe
-STRIPE_SECRET_KEY=...
-STRIPE_WEBHOOK_SECRET=...
-STRIPE_PUBLISHABLE_KEY=...
-```
-
-### Обязательные env для LiqPay
-
-```env
-PAYMENT_PROVIDER=liqpay
-LIQPAY_PUBLIC_KEY=...
-LIQPAY_PRIVATE_KEY=...
-LIQPAY_SANDBOX=false
-```
-
-## E2E-проверки
-
-### Frontend smoke tests
-
-Проверяют доступность основных frontend-маршрутов и базовый рендеринг. Backend не требуется.
+### Run frontend smoke tests
 
 ```bash
 cd frontend
@@ -290,9 +90,9 @@ npx playwright install chromium
 npm run test:e2e:smoke
 ```
 
-### Full-stack booking E2E
+### Run full-stack booking E2E
 
-Проверяет пользовательский сценарий записи, включая NestJS, PostgreSQL, Redis и mock payment provider. Docker Compose запускает изолированную тестовую БД, применяет миграции, выполняет demo seed, ждёт readiness backend/frontend, затем запускает Playwright и очищает тестовые ресурсы.
+Requires Docker Engine/Compose, Node.js 20+, and Playwright Chromium:
 
 ```bash
 cd frontend
@@ -301,143 +101,154 @@ npx playwright install chromium
 npm run test:e2e:full
 ```
 
-Полный сценарий запускается отдельным GitHub Actions `e2e` job после успешных backend и frontend build jobs.
+The runner starts an isolated PostgreSQL + Redis Compose project, runs migrations and demo seed data, waits for backend/frontend readiness, runs the UI flow, then removes the containers, network, and database volume.
+
+## Features
+
+- Customer booking wizard at `/booking`, availability lookup, and public booking confirmation
+- Client portal at `/account` for booking lookup and self-service
+- Admin sign-in at `/admin/login` and protected admin pages for bookings, services, barbers, and schedules
+- Short-lived holds to reserve slots while payment is in progress
+- Provider-based payment confirmation and booking conversion
+- Background worker for scheduled tasks, reminders, payment reconciliation, and Telegram notifications
+- Liveness/readiness health checks and Prometheus metrics
+
+## Application routes
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Public home page |
+| `/booking` | Service, barber, date, and time selection |
+| `/booking/hold/:id` | Temporary hold and payment step |
+| `/booking/confirm/:id` | Confirmed booking |
+| `/account` | Client booking access and self-service |
+| `/admin/login` | Admin sign-in |
+| `/admin` | Booking and operations dashboard |
+| `/admin/barbers`, `/admin/services`, `/admin/schedule` | Manage staff, services, and schedules |
+
+The API also exposes liveness and readiness health checks at `/health/live` and `/health/ready`; Prometheus metrics are served at `/api/v1/metrics`.
+
+## User journeys
+
+### Client booking
+
+1. Select a service and barber, then choose an available date and time.
+2. Create a short-lived hold for the selected slot.
+3. Complete payment with the configured provider.
+4. View the confirmed booking and access it later through the client portal.
+
+Clients can also retrieve and manage eligible bookings from `/account`, including cancellation or rescheduling when the booking rules allow it.
+
+### Admin operations
+
+After signing in at `/admin/login`, staff can review bookings and manage barbers, services, and working schedules. Admin credentials are configured privately on the server; never publish them in this repository.
+
+## Local setup
+
+Prerequisites: Node.js 20+, npm, Docker Engine, and Docker Compose.
+
+```bash
+cp backend/.env.example backend/.env
+# Replace the example credentials/secrets before using the local stack.
+docker compose up --build
+```
+
+The development stack exposes the frontend at `http://localhost:3000` and backend API at `http://localhost:3001/api/v1`. Do not use these local credentials or `.env` values for a public deployment.
+
+For a no-Docker frontend development server, install dependencies with `npm ci` in `frontend/` and run `npm run dev`. The backend still needs reachable PostgreSQL and Redis services.
+
+The backend package also provides `npm run migration:run`, `npm run seed:demo`, and `npm run seed:admin` for local database setup. Run the demo seed only against an isolated development/test database; use private values for any admin account.
 
 ## Production deployment
 
-Production-стек описан в [docker-compose.prod.yml](docker-compose.prod.yml) и включает:
+The production Compose stack includes PostgreSQL, Redis, the API, a worker, one-off migrations, backups, static frontend, and Nginx. Public traffic is intended to enter through Nginx on ports 80/443; PostgreSQL and Redis have no published host ports in the production Compose file.
 
-- `postgres`
-- `redis`
-- `backend`
-- `worker`
-- `backup`
-- `frontend`
-- `nginx`
-- `prometheus` и `alertmanager` через профиль `observability`
+Deployment steps, required environment variables, HTTPS, health checks, payment provider configuration, and the current mock-payment restriction are described in [docs/production.md](docs/production.md) and [docs/demo-deployment.md](docs/demo-deployment.md).
 
-### 1. Подготовить production env
+### Deployment sequence
 
-Создайте отдельный файл, например `.env.production`, и не коммитьте его в git.
+1. Create a private `.env.production` outside version control. At minimum configure `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `FRONTEND_URL`, `BACKEND_PUBLIC_URL`, and `PAYMENT_PROVIDER`. Production requires HTTPS URLs, a 32+ character JWT secret, and a non-placeholder admin password.
+2. Configure the credentials required by the selected payment provider. Production currently accepts Stripe or LiqPay, not mock.
+3. Put TLS files at `nginx/certs/fullchain.pem` and `nginx/certs/privkey.pem`.
+4. Build and migrate before starting the application:
 
-Минимальный набор:
+   ```bash
+   docker compose --env-file .env.production -f docker-compose.prod.yml build
+   docker compose --env-file .env.production -f docker-compose.prod.yml --profile ops run --rm migrations
+   docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+   ```
 
-```env
-DB_NAME=barbershop
-DB_USER=barber
-DB_PASSWORD=<strong database password>
-JWT_SECRET=<32+ char secret>
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=<strong admin password>
-FRONTEND_URL=https://example.com
-BACKEND_PUBLIC_URL=https://example.com
-PAYMENT_PROVIDER=stripe
-STRIPE_SECRET_KEY=<secret>
-STRIPE_WEBHOOK_SECRET=<webhook secret>
-STRIPE_PUBLISHABLE_KEY=<publishable key>
-TELEGRAM_MODE=outbound
-WORKER_TELEGRAM_MODE=polling
-BACKUP_STATUS_FILE=/var/lib/barberbook/backup-state/last-success.json
-BACKUP_MAX_AGE_HOURS=24
-BACKUP_RETENTION_DAYS=7
-BACKUP_INTERVAL_SECONDS=86400
-```
+5. Check `https://your-domain/health/live` and `https://your-domain/health/ready`.
 
-Если используете LiqPay, замените платежные переменные на `LIQPAY_PUBLIC_KEY` и `LIQPAY_PRIVATE_KEY`.
+Do not publish admin demo credentials. Restrict admin access at the hosting/reverse-proxy or network layer before exposing a demo. Keep provider keys and database credentials out of frontend build variables.
 
-### 2. Подготовить TLS-сертификаты
+## Observability and backups
 
-На production-хосте должны существовать:
+Prometheus and Alertmanager are available through the `observability` Compose profile. PostgreSQL backups use `pg_dump -Fc`, retention settings, and backup freshness metadata. See [docs/observability.md](docs/observability.md) and [docs/backup-restore.md](docs/backup-restore.md).
 
-- `nginx/certs/fullchain.pem`
-- `nginx/certs/privkey.pem`
-
-`nginx` слушает `80` и `443`, а HTTP перенаправляется на HTTPS.
-
-### 3. Собрать образы
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml build
-```
-
-### 4. Выполнить миграции
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrations
-```
-
-Это отдельный шаг. Не пропускайте его перед rollout.
-
-### 5. Поднять production-стек
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d
-```
-
-### 6. Проверить доступность после деплоя
-
-```bash
-curl -fsS https://your-domain/health/live
-curl -fsS https://your-domain/health/ready
-curl -fsS https://your-domain/api/v1/metrics
-```
-
-## Monitoring и observability
-
-Prometheus и Alertmanager можно включить отдельным профилем:
+To enable monitoring:
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml --profile observability up -d prometheus alertmanager
 ```
 
-Мониторинг покрывает:
+The bundled Prometheus rules cover API errors/latency, PostgreSQL and Redis readiness, backup freshness, and worker lag. Configure a real Alertmanager receiver before relying on alerts. Prometheus and Alertmanager publish host ports in the supplied Compose file; firewall or otherwise restrict access to them on a public host.
 
-- HTTP request count и latency;
-- готовность PostgreSQL и Redis;
-- freshness бэкапов;
-- worker lag и last success timestamp;
-- API 5xx rate и p95 latency через alert rules.
-
-Конфиги находятся в:
-
-- [monitoring/prometheus/prometheus.yml](monitoring/prometheus/prometheus.yml)
-- [monitoring/prometheus/alerts.yml](monitoring/prometheus/alerts.yml)
-- [monitoring/alertmanager/alertmanager.yml](monitoring/alertmanager/alertmanager.yml)
-
-## Бэкапы и восстановление
-
-В production-compose есть сервис `backup`, который:
-
-- делает `pg_dump -Fc`;
-- складывает дампы в `ops/backups/`;
-- обновляет `ops/backup-state/last-success.json`;
-- удаляет старые дампы по retention policy.
-
-### Ручной бэкап
+Backups are scheduled through the `backup` service and stored under `ops/backups/`; freshness state is stored under `ops/backup-state/`. For an on-demand backup:
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml run --rm backup sh /backup-scripts/backup-postgres.sh
 ```
 
-### Ручное восстановление
+See the linked backup/restore guide for restore procedure and recovery checks.
 
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml run --rm backup sh /backup-scripts/restore-postgres.sh /backups/<backup-file>.dump
+## Repository layout
+
+```text
+backend/        NestJS API, migrations, seed scripts, and worker
+frontend/       React customer and admin application
+nginx/          Production reverse proxy
+monitoring/     Prometheus and Alertmanager configuration
+ops/            Backup and restore scripts
+docs/           Architecture, deployment, and screenshot guidance
 ```
 
-Перед критичными миграциями стоит делать дополнительный внеплановый backup.
+## Further documentation
 
-## Дополнительная документация
+- [Architecture](docs/architecture.md)
+- [Demo deployment checklist](docs/demo-deployment.md)
+- [Production deployment](docs/production.md)
+- [Observability](docs/observability.md)
+- [Backup and restore](docs/backup-restore.md)
+- [Screenshot capture requirements](docs/screenshots/README.md)
+- [GitHub repository presentation](docs/github-portfolio-setup.md)
 
-- [docs/production.md](docs/production.md) - подробности по production rollout
-- [docs/observability.md](docs/observability.md) - мониторинг и alerts
-- [docs/backup-restore.md](docs/backup-restore.md) - backup/restore
+---
 
-## Краткие замечания по эксплуатации
+## Developer commands
 
-- В production API должен работать с `TELEGRAM_MODE=outbound`.
-- Telegram polling должен быть включен только у `worker`.
-- Для публичных endpoint'ов настроены rate limits через `nginx` и Redis-backed guards.
-- Health checks разделены на `live` и `ready`.
-- `frontend` в production собирается в статические файлы и обслуживается через nginx внутри контейнера.
-- Миграции выполняются отдельным one-off контейнером, а не при каждом старте production API.
+Frontend: `npm run lint`, `npm run build`, `npm run test:e2e:smoke`, `npm run test:e2e:full`.
+
+Backend: `npm run lint`, `npm run test`, `npm run build`, `npm run migration:run`, `npm run seed:demo`, `npm run seed:admin`.
+
+## Payment provider environment
+
+For Stripe, configure the backend with:
+
+```env
+PAYMENT_PROVIDER=stripe
+STRIPE_SECRET_KEY=<secret>
+STRIPE_WEBHOOK_SECRET=<webhook secret>
+STRIPE_PUBLISHABLE_KEY=<publishable key>
+```
+
+For LiqPay:
+
+```env
+PAYMENT_PROVIDER=liqpay
+LIQPAY_PUBLIC_KEY=<public key>
+LIQPAY_PRIVATE_KEY=<private key>
+LIQPAY_SANDBOX=true
+```
+
+Never commit provider credentials. Production environment validation requires a real supported provider; mock payments are intended for local and isolated E2E environments.
