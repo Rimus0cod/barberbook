@@ -8,6 +8,8 @@ backend/node_modules/
 backend/dist/
 frontend/node_modules/
 frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
 *.log
 *.tsbuildinfo
 nginx/certs/*

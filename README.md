@@ -277,6 +277,32 @@ LIQPAY_PRIVATE_KEY=...
 LIQPAY_SANDBOX=false
 ```
 
+## E2E-проверки
+
+### Frontend smoke tests
+
+Проверяют доступность основных frontend-маршрутов и базовый рендеринг. Backend не требуется.
+
+```bash
+cd frontend
+npm ci
+npx playwright install chromium
+npm run test:e2e:smoke
+```
+
+### Full-stack booking E2E
+
+Проверяет пользовательский сценарий записи, включая NestJS, PostgreSQL, Redis и mock payment provider. Docker Compose запускает изолированную тестовую БД, применяет миграции, выполняет demo seed, ждёт readiness backend/frontend, затем запускает Playwright и очищает тестовые ресурсы.
+
+```bash
+cd frontend
+npm ci
+npx playwright install chromium
+npm run test:e2e:full
+```
+
+Полный сценарий запускается отдельным GitHub Actions `e2e` job после успешных backend и frontend build jobs.
+
 ## Production deployment
 
 Production-стек описан в [docker-compose.prod.yml](docker-compose.prod.yml) и включает:
