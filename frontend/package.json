@@ -11,7 +11,9 @@
     "test:e2e": "npm run test:e2e:smoke",
     "test:e2e:smoke": "playwright test --config playwright.config.ts",
     "test:e2e:full": "sh ./scripts/test-e2e-full.sh",
-    "test:e2e:full:playwright": "playwright test --config playwright.full.config.ts"
+    "test:e2e:full:playwright": "playwright test --config playwright.full.config.ts",
+    "test:e2e:portfolio-screenshots": "E2E_SUITE=portfolio-screenshots sh ./scripts/test-e2e-full.sh",
+    "test:e2e:portfolio-screenshots:playwright": "playwright test --config playwright.portfolio.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

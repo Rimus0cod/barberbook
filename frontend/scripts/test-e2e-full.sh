@@ -33,4 +33,17 @@ trap cleanup EXIT
 
 compose down --volumes --remove-orphans
 compose up --build --detach --wait --wait-timeout 240
-npm run test:e2e:full:playwright
+
+case "${E2E_SUITE:-booking}" in
+  booking)
+    npm run test:e2e:full:playwright
+    ;;
+  portfolio-screenshots)
+    compose exec -T backend npm run seed:admin
+    npm run test:e2e:portfolio-screenshots:playwright
+    ;;
+  *)
+    echo "Unsupported E2E_SUITE: ${E2E_SUITE}" >&2
+    exit 2
+    ;;
+esac

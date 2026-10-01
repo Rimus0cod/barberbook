@@ -1,0 +1,62 @@
+name: Portfolio screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Verify isolated screenshot environment
+        working-directory: .
+        run: |
+          docker info
+          docker compose version
+          docker compose -p barberbook-e2e -f docker-compose.e2e.yml config
+
+      - name: Capture screenshots from seeded full-stack environment
+        run: npm run test:e2e:portfolio-screenshots
+
+      - name: Convert screenshots to WebP
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes imagemagick
+          mkdir -p docs/screenshots
+          for image in home-desktop booking confirmation account admin-dashboard dark-mode; do
+            convert "frontend/test-results/portfolio-screenshots/${image}.png" \
+              -quality 84 "docs/screenshots/${image}.webp"
+          done
+          convert "frontend/test-results/portfolio-screenshots/mobile.png" \
+            -quality 84 docs/screenshots/mobile.webp
+          for image in home-desktop booking confirmation account admin-dashboard dark-mode; do
+            test "$(identify -format '%wx%h' "docs/screenshots/${image}.webp")" = "1440x900"
+            test -s "docs/screenshots/${image}.webp"
+          done
+          test "$(identify -format '%wx%h' docs/screenshots/mobile.webp)" = "390x844"
+          test -s docs/screenshots/mobile.webp
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: barberbook-portfolio-screenshots
+          path: docs/screenshots/*.webp
+          if-no-files-found: error
+          retention-days: 14
