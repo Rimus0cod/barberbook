@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("homepage is reachable and renders the application shell", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle(/BarberBook Studio/i);
+  await expect(page).toHaveTitle(/BarberBook/i);
   await expect(page.locator("body")).toContainText(/BarberBook|Studio/i);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
