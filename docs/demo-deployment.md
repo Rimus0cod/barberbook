@@ -1,0 +1,111 @@
+# Public demo deployment checklist
+
+## Current status
+
+The app has a production Compose stack and a repeatable demo seed, but no live demo is deployed. Public deployment with mock payments is currently **blocked by an intentional production guard**: `NODE_ENV=production` accepts Stripe or LiqPay and rejects `PAYMENT_PROVIDER=mock`. Do not work around this by running the production app in `test` mode or by weakening environment validation. Decide and review a dedicated safe demo payment policy before publishing a demo URL.
+
+## Environment variables
+
+Create a secret `.env.production` outside the repository and provide it only to the deployment host/secret manager.
+
+Required by production Compose/backend:
+
+```env
+DB_NAME=<dedicated demo database name>
+DB_USER=<dedicated demo database user>
+DB_PASSWORD=<unique strong password, at least 12 characters>
+JWT_SECRET=<unique random secret, at least 32 characters>
+ADMIN_EMAIL=<private admin email>
+ADMIN_PASSWORD=<unique strong password, at least 12 characters>
+FRONTEND_URL=https://demo.example.com
+BACKEND_PUBLIC_URL=https://demo.example.com
+PAYMENT_PROVIDER=stripe
+```
+
+Production currently requires one real provider. For Stripe, also set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PUBLISHABLE_KEY`. For LiqPay, set `LIQPAY_PUBLIC_KEY` and `LIQPAY_PRIVATE_KEY`, and use sandbox mode only when configured with the provider's sandbox credentials.
+
+For a public demo without Telegram integration, set both `TELEGRAM_MODE=disabled` and `WORKER_TELEGRAM_MODE=disabled`. If notifications are deliberately enabled, use a demo-only bot and chat; never reuse a personal/production bot token.
+
+Recommended operational settings:
+
+```env
+BACKUP_STATUS_FILE=/var/lib/barberbook/backup-state/last-success.json
+BACKUP_MAX_AGE_HOURS=24
+BACKUP_RETENTION_DAYS=7
+BACKUP_INTERVAL_SECONDS=86400
+```
+
+Compose supplies internal PostgreSQL and Redis connection values. Do not add database or Redis host port mappings.
+
+## Migrations and demo seed
+
+Use a dedicated empty demo database, not production data. Build the production image, then apply migrations:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml build
+docker compose --env-file .env.production -f docker-compose.prod.yml --profile ops run --rm migrations
+```
+
+The production image compiles the existing repeatable demo seed. It creates fictional barbers/services and weekday schedules, skips existing rows by name, and does not import customer records:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm backend node dist/database/seed-demo.js
+```
+
+The demo seed uses stock photo URLs. Confirm their suitability for the intended deployment or replace them with approved assets before launch.
+
+Create the private admin account as a separate one-off operation. Use the strong `ADMIN_EMAIL` and `ADMIN_PASSWORD` values supplied through the host's secret environment:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm backend node dist/database/seed-admin.js
+```
+
+The seed does not reset an existing password. If an admin account already exists, rotate credentials through an approved procedure rather than assuming this command changed them.
+
+## Docker startup and health checks
+
+After migrations and seed data:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+docker compose --env-file .env.production -f docker-compose.prod.yml ps
+curl -fsS https://demo.example.com/health/live
+curl -fsS https://demo.example.com/health/ready
+```
+
+Production Compose exposes only Nginx on host ports 80 and 443; PostgreSQL and Redis remain on the internal Compose network. The observability profile publishes Prometheus and Alertmanager ports, so firewall or restrict those ports before enabling that profile on an internet-facing host.
+
+## Domain and HTTPS
+
+- Point the demo domain to the host and configure DNS before startup.
+- Install valid TLS files at `nginx/certs/fullchain.pem` and `nginx/certs/privkey.pem`.
+- Set both public URL variables to the canonical HTTPS origin.
+- Confirm HTTP redirects to HTTPS and that the readiness endpoints pass.
+- `frontend/public/og-image.webp` is the configured social preview image; it is a branded illustration, not a screenshot of the live interface.
+
+## Admin access strategy
+
+Do not publish `ADMIN_EMAIL`, `ADMIN_PASSWORD`, or a shared demo login in the repository, README, screenshots, or public issue tracker. The app has an admin login, but the current Nginx configuration does not add a separate access gate for admin routes. Before a public demo, either:
+
+- restrict `/admin` and admin API access with a host-level IP allow-list or an authenticated access proxy; or
+- keep admin access private and do not distribute demo credentials.
+
+Use a unique least-privilege demo account if supported by the application roles, rotate it regularly, and remove it when the demo is retired. Do not expose the demo admin account to the public booking flow.
+
+## Launch safety review
+
+- Keep the demo database separate and disposable; do not copy production customer records.
+- Use `PAYMENT_PROVIDER=mock` only in the isolated E2E/test environment. The current production validator blocks mock payments; no live demo payment policy is enabled by this guide.
+- Keep admin/API/database/payment secrets server-side. Never put them in `VITE_*` variables or frontend assets.
+- Keep PostgreSQL and Redis unexposed; firewall the host to required public ports only.
+- Use Nginx and Redis-backed rate limits; review the rate limits against expected public traffic.
+- Disable Telegram for a public demo unless a dedicated demo bot/chat is configured.
+- Confirm stock imagery and any other third-party assets are approved for the demo.
+- Run a dependency/build check and verify health endpoints after every deployment.
+
+## Remaining before a public URL can be announced
+
+1. Select a safe payment policy for a publicly reachable demo. The current production configuration requires Stripe or LiqPay; mock is not permitted in production mode.
+2. Provision a dedicated host/domain, TLS, and isolated database/Redis resources.
+3. Add an external access restriction for admin routes or keep all admin credentials private.
+4. Deploy, verify health, then capture actual desktop/mobile UI screenshots from the populated demo.
