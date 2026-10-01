@@ -23,7 +23,8 @@ compose() {
 cleanup() {
   exit_code=$?
   if [ "$exit_code" -ne 0 ]; then
-    compose logs --no-color || true
+    compose ps --all || true
+    compose logs --no-color --tail=100 || true
   fi
   compose down --volumes --remove-orphans || true
   exit "$exit_code"
