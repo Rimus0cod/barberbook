@@ -19,8 +19,8 @@ test("a guest completes a booking and mock payment", async ({ page }) => {
   await expect(timeSlot).toBeVisible();
   await timeSlot.click();
 
-  await page.getByLabel(/ім.?я|name/i).fill("E2E Demo Client");
-  await page.getByLabel(/телефон|phone/i).fill("+15550100200");
+  await page.getByPlaceholder(/ім.?я|your name/i).fill("E2E Demo Client");
+  await page.getByPlaceholder(/телефон|phone number/i).fill("+15550100200");
   await page.getByRole("button", { name: /перейти до оплати|continue to payment/i }).click();
 
   await expect(page).toHaveURL(/\/booking\/hold\/[^/]+/);
