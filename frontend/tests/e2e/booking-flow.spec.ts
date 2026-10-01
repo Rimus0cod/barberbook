@@ -21,7 +21,19 @@ test("a guest completes a booking and mock payment", async ({ page }) => {
 
   await page.getByPlaceholder(/ім.?я|your name/i).fill("E2E Demo Client");
   await page.getByPlaceholder(/телефон|phone number/i).fill("+15550100200");
+
+  const holdResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname.endsWith("/booking-holds"),
+  );
   await page.getByRole("button", { name: /перейти до оплати|continue to payment/i }).click();
+  const holdResponse = await holdResponsePromise;
+  const holdResponseBody = await holdResponse.text();
+  expect(
+    holdResponse.ok(),
+    `Booking hold request failed with ${holdResponse.status()}: ${holdResponseBody}`,
+  ).toBeTruthy();
 
   await expect(page).toHaveURL(/\/booking\/hold\/[^/]+/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
