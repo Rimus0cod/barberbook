@@ -38,7 +38,7 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: e2e-local-only-jwt-secret-not-for-deployment
       JWT_EXPIRES_IN: 7d
-      ADMIN_EMAIL: admin@example.test
+      ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: e2e-local-only-admin-password
       TELEGRAM_MODE: disabled
       FRONTEND_URL: http://localhost:${E2E_FRONTEND_PORT:-3300}
