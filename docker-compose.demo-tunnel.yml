@@ -2,3 +2,14 @@ services:
   nginx:
     ports: !override
       - "127.0.0.1:18443:443"
+
+  tunnel-proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18480:8080"
+    volumes:
+      - ./nginx/demo-tunnel-proxy.conf:/etc/nginx/conf.d/default.conf:ro

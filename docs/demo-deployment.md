@@ -2,15 +2,15 @@
 
 ## Current status
 
-The app has a production Compose stack and a repeatable demo seed. The laptop-hosted showcase is designed to use Stripe test mode and a temporary Cloudflare Quick Tunnel URL. It is a best-effort demo, not an uptime-guaranteed production service; the URL changes whenever the tunnel is restarted. Never work around the production guard by setting `NODE_ENV=test` or weakening environment validation.
+The app has a production Compose stack and a repeatable demo seed. The laptop-hosted showcase uses Stripe test mode and a temporary localhost.run HTTPS URL. It is a best-effort demo, not an uptime-guaranteed production service; the free URL can change when the tunnel reconnects. Never work around the production guard by setting `NODE_ENV=test` or weakening environment validation.
 
-The tunnel overlay publishes the app's TLS listener only on `127.0.0.1:18443`, leaving any other laptop services on ports 80/443 untouched. The generated local origin certificate is self-signed; cloudflared disables certificate verification only for its connection to this loopback origin. Browser-to-Cloudflare traffic remains HTTPS.
+The tunnel overlay publishes the app's TLS listener only on `127.0.0.1:18443` and adds a loopback-only HTTP proxy at `127.0.0.1:18480` for localhost.run's TLS-terminating tunnel. The proxy forwards to the app's TLS listener inside the isolated Compose network. Existing laptop services on ports 80/443 are untouched.
 
-Quick Tunnels are public: anyone with the URL can access the booking UI. Keep admin credentials private, use Stripe test credentials only, and do not enter real customer data.
+The tunnel is public: anyone with the URL can access the booking UI. Keep admin credentials private, use Stripe test credentials only, and do not enter real customer data.
 
 ## Laptop demo with a temporary HTTPS tunnel
 
-Run commands from the repository root on the laptop. Install Docker Engine/Compose and `cloudflared` first. Start the tunnel in a terminal and leave it running:
+Run commands from the repository root on the laptop. Install Docker Engine/Compose first. Generate a local origin certificate if one does not already exist:
 
 ```bash
 mkdir -p nginx/certs
@@ -20,12 +20,17 @@ openssl req -x509 -nodes -newkey rsa:2048 \
   -out nginx/certs/fullchain.pem \
   -days 30 -subj "/CN=localhost" \
   -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-cloudflared tunnel --url https://127.0.0.1:18443 --no-tls-verify
 ```
 
-Copy the printed `https://<name>.trycloudflare.com` URL. Create `.env.production` with restrictive permissions (`chmod 600`) and set both `FRONTEND_URL` and `BACKEND_PUBLIC_URL` to that exact URL. Use Stripe **test-mode** `sk_test_`, `pk_test_`, and webhook signing secret values only. In the Stripe Dashboard with Test mode enabled, add a webhook endpoint at `<URL>/api/v1/payments/webhooks/stripe` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`, and `payment_intent.canceled`; put its `whsec_` secret in `.env.production`. Do not put payment keys in shell history, source control, README, or this document.
+Start the Compose services with the commands below, then start the SSH tunnel in a separate terminal and leave it running:
 
-In a second terminal, apply the existing migration and demo seed, then start the isolated production project. The override binds Nginx to loopback and does not replace or reconfigure another service:
+```bash
+ssh -o ServerAliveInterval=60 -R 80:127.0.0.1:18480 nokey@localhost.run
+```
+
+Copy the printed `https://<name>.lhr.life` URL. Create `.env.production` with restrictive permissions (`chmod 600`) and set both `FRONTEND_URL` and `BACKEND_PUBLIC_URL` to that exact URL. Use Stripe **test-mode** `sk_test_`, `pk_test_`, and webhook signing secret values only. In the Stripe Dashboard with Test mode enabled, add a webhook endpoint at `<URL>/api/v1/payments/webhooks/stripe` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`, and `payment_intent.canceled`; put its `whsec_` secret in `.env.production`. Do not put payment keys in shell history, source control, README, or this document.
+
+Apply the existing migration and demo seed, then start the isolated production project. The override binds both tunnel endpoints to loopback and does not replace or reconfigure another service:
 
 ```bash
 docker compose -p barberbook-demo --env-file .env.production \
@@ -40,11 +45,12 @@ docker compose -p barberbook-demo --env-file .env.production \
   -f docker-compose.prod.yml -f docker-compose.demo-tunnel.yml \
   run --rm backend node dist/database/seed-admin.js
 docker compose -p barberbook-demo --env-file .env.production \
-  -f docker-compose.prod.yml -f docker-compose.demo-tunnel.yml up -d --wait
-curl -fsS https://<name>.trycloudflare.com/health/ready
+  -f docker-compose.prod.yml -f docker-compose.demo-tunnel.yml \
+  up -d --wait postgres redis backend frontend nginx tunnel-proxy
+curl -fsS https://<name>.lhr.life/health/ready
 ```
 
-The admin account is private and should use a randomly generated password. Do not share it publicly. The tunnel terminal must remain running; stopping it takes the public URL offline. Restarting it gives a different URL, so update Stripe's test webhook endpoint, `FRONTEND_URL`/`BACKEND_PUBLIC_URL`, and the GitHub Homepage/README link before restarting the app.
+The admin account is private and should use a randomly generated password. Do not share it publicly. The tunnel process must remain running; stopping it takes the public URL offline. If its URL changes, update Stripe's test webhook endpoint and `FRONTEND_URL`/`BACKEND_PUBLIC_URL`, restart the app, and verify the new URL before updating GitHub Homepage/README.
 
 ## Environment variables
 
