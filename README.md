@@ -10,11 +10,13 @@ Production-oriented full-stack booking platform for barbershops. It covers the b
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
 ![Playwright](https://img.shields.io/badge/Playwright-E2E-2ead33)
 
-[Live demo: not deployed yet](#live-demo) · [Architecture](#architecture) · [Local setup](#local-setup)
+[Live demo](https://f89f2f4477b482.lhr.life) · [Architecture](#architecture) · [Local setup](#local-setup)
 
 ## Live demo
 
-There is no public demo URL yet. The deployment checklist is in [docs/demo-deployment.md](docs/demo-deployment.md); the current production configuration intentionally rejects mock payments, so public demo deployment needs a reviewed payment-mode decision first.
+Open the [BarberBook Studio demo](https://f89f2f4477b482.lhr.life). It runs in an isolated Docker Compose environment with PostgreSQL, Redis, NestJS, and Stripe test mode; no real payments are processed. The free tunnel is temporary and its URL may change after a reconnect. Use fictional customer details only.
+
+The deployment checklist is in [docs/demo-deployment.md](docs/demo-deployment.md).
 
 ## Preview
 
