@@ -54,10 +54,11 @@ test("capture real portfolio views from the seeded demo application", async ({ b
   await page.getByPlaceholder(/password from backend\/\.env/i).fill("e2e-local-only-admin-password");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/admin$/);
-  const dashboardDate = page.locator('input[name="date"]').first();
+  const dashboardDate = page.locator("main > div").first().locator('input[type="date"]');
   await dashboardDate.fill(appointmentDateForAdmin);
   await expect(page.getByRole("heading", { name: /bookings overview/i })).toBeVisible();
-  await expect(page.getByText(/Showing page .* Total bookings:/i)).toBeVisible();
+  await expect(page.getByText("Portfolio Demo Client")).toBeVisible();
+  await expect(page.getByText(/Total bookings: 1\./)).toBeVisible();
   await page.screenshot({ path: screenshotPath("admin-dashboard") });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -70,7 +71,14 @@ test("capture real portfolio views from the seeded demo application", async ({ b
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole("button", { name: /dark theme/i }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.screenshot({ path: screenshotPath("dark-mode") });
+  await expect
+    .poll(() =>
+      page.locator("html").evaluate((element) =>
+        getComputedStyle(element).getPropertyValue("--color-cream").trim(),
+      ),
+    )
+    .toBe("15 18 23");
+  await page.screenshot({ path: screenshotPath("dark-mode"), animations: "disabled" });
 
   expect(applicationErrors).toEqual([]);
   await desktop.close();
