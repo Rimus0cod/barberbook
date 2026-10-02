@@ -11,6 +11,7 @@
     "build": "nest build",
     "lint": "tsc --noEmit --pretty false",
     "seed:admin": "ts-node -r tsconfig-paths/register src/database/seed-admin.ts",
+    "seed:demo": "ts-node -r tsconfig-paths/register src/database/seed-demo.ts",
     "migration:run": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:run",
     "migration:run:prod": "typeorm -d dist/database/data-source.js migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:revert",
