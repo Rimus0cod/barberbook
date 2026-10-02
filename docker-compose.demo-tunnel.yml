@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     depends_on:
       nginx:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "127.0.0.1:18480:8080"
     volumes:
