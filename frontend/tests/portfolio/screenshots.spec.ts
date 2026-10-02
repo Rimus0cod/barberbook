@@ -98,11 +98,11 @@ async function chooseBookingSlot(page: import("@playwright/test").Page) {
 }
 
 async function switchToEnglish(page: import("@playwright/test").Page) {
-  const languageButton = page.getByRole("button", { name: "EN", exact: true });
-  if (await languageButton.isVisible()) {
-    await languageButton.click();
+  const englishButton = page.getByRole("button", { name: "EN", exact: true });
+  if (!(await englishButton.isVisible())) {
+    await page.getByRole("button", { name: "UA", exact: true }).click();
   }
-  await expect(page.getByRole("button", { name: "UA", exact: true })).toBeVisible();
+  await expect(englishButton).toBeVisible();
 }
 
 function screenshotPath(name: string) {
