@@ -2,11 +2,63 @@
 
 ## Current status
 
-The app has a production Compose stack and a repeatable demo seed, but no live demo is deployed. Public deployment with mock payments is currently **blocked by an intentional production guard**: `NODE_ENV=production` accepts Stripe or LiqPay and rejects `PAYMENT_PROVIDER=mock`. Do not work around this by running the production app in `test` mode or by weakening environment validation. Decide and review a dedicated safe demo payment policy before publishing a demo URL.
+The app has a production Compose stack and a repeatable demo seed. The laptop-hosted showcase uses Stripe test mode and an account-authenticated localhost.run HTTPS URL. It is a best-effort demo, not an uptime-guaranteed production service; the laptop and tunnel provider must remain available, and the provider may rotate free hostnames. Never work around the production guard by setting `NODE_ENV=test` or weakening environment validation.
+
+The tunnel overlay publishes the app's TLS listener only on `127.0.0.1:18443` and adds a loopback-only HTTP proxy at `127.0.0.1:18480` for localhost.run's TLS-terminating tunnel. The proxy forwards to the app's TLS listener inside the isolated Compose network. Existing laptop services on ports 80/443 are untouched.
+
+The tunnel is public: anyone with the URL can access the booking UI. Keep admin credentials private, use Stripe test credentials only, and do not enter real customer data.
+
+## Laptop demo with a temporary HTTPS tunnel
+
+Run commands from the repository root on the laptop. Install Docker Engine/Compose first. Generate a local origin certificate if one does not already exist:
+
+```bash
+mkdir -p nginx/certs
+umask 077
+openssl req -x509 -nodes -newkey rsa:2048 \
+  -keyout nginx/certs/privkey.pem \
+  -out nginx/certs/fullchain.pem \
+  -days 30 -subj "/CN=localhost" \
+  -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+```
+
+Create a localhost.run account and add a dedicated SSH public key to it. Keep the matching private key on the laptop; do not use the anonymous `nokey` account if you want the hostname reused between reconnects. Start the Compose services with the commands below, then start the SSH tunnel in a separate terminal and leave it running:
+
+```bash
+ssh -i ~/.ssh/barberbook-localhostrun \
+  -o IdentitiesOnly=yes \
+  -o ServerAliveInterval=60 \
+  -o ServerAliveCountMax=3 \
+  -R 80:127.0.0.1:18480 localhost.run
+```
+
+Copy the printed `https://<name>.lhr.life` URL. Create `.env.production` with restrictive permissions (`chmod 600`) and set both `FRONTEND_URL` and `BACKEND_PUBLIC_URL` to that exact URL. Use Stripe **test-mode** `sk_test_`, `pk_test_`, and webhook signing secret values only. In the Stripe Dashboard with Test mode enabled, add a webhook endpoint at `<URL>/api/v1/payments/webhooks/stripe` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`, and `payment_intent.canceled`; put its `whsec_` secret in `.env.production`. When editing a deployed endpoint URL, keep the same Stripe endpoint so its signing secret remains valid. Do not put payment keys in shell history, source control, README, or this document.
+
+Apply the existing migration and demo seed, then start the isolated production project. The override binds both tunnel endpoints to loopback and does not replace or reconfigure another service:
+
+```bash
+docker compose -p barberbook-demo --env-file .env.production \
+  -f docker-compose.prod.yml -f docker-compose.demo-tunnel.yml build
+docker compose -p barberbook-demo --env-file .env.production \
+  -f docker-compose.prod.yml -f docker-compose.demo-tunnel.yml \
+  --profile ops run --rm migrations
+docker compose -p barberbook-demo --env-file .env.production \
+  -f docker-compose.prod.yml -f docker-compose.demo-tunnel.yml \
+  run --rm backend node dist/database/seed-demo.js
+docker compose -p barberbook-demo --env-file .env.production \
+  -f docker-compose.prod.yml -f docker-compose.demo-tunnel.yml \
+  run --rm backend node dist/database/seed-admin.js
+docker compose -p barberbook-demo --env-file .env.production \
+  -f docker-compose.prod.yml -f docker-compose.demo-tunnel.yml \
+  up -d --wait postgres redis backend frontend nginx tunnel-proxy
+curl -fsS https://<name>.lhr.life/health/ready
+```
+
+The admin account is private and should use a randomly generated password. Do not share it publicly. The tunnel process must remain running; stopping it takes the public URL offline. If its URL changes, update Stripe's test webhook endpoint and `FRONTEND_URL`/`BACKEND_PUBLIC_URL`, restart the app, and verify the new URL before updating GitHub Homepage/README.
 
 ## Environment variables
 
-Create a secret `.env.production` outside the repository and provide it only to the deployment host/secret manager.
+Create a secret `.env.production` on the deployment host and provide it only through that host's private shell/editor. It is gitignored.
 
 Required by production Compose/backend:
 
