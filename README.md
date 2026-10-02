@@ -16,9 +16,19 @@ Production-oriented full-stack booking platform for barbershops. It covers the b
 
 There is no public demo URL yet. The deployment checklist is in [docs/demo-deployment.md](docs/demo-deployment.md); the current production configuration intentionally rejects mock payments, so public demo deployment needs a reviewed payment-mode decision first.
 
-## Screenshots
+## Preview
 
-Real interface screenshots are not included yet. Docker Engine is unavailable in the current capture environment, and there is no live demo to capture from. No placeholder or generated UI images are presented as product screenshots. Capture requirements and target viewports are documented in [docs/screenshots/README.md](docs/screenshots/README.md).
+<p align="center">
+  <img src="docs/screenshots/home-desktop.webp" width="49%" alt="BarberBook home page" />
+  <img src="docs/screenshots/booking.webp" width="49%" alt="BarberBook booking flow with a selected barber and available slots" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/admin-dashboard.webp" width="49%" alt="BarberBook admin dashboard with a confirmed demo booking" />
+  <img src="docs/screenshots/mobile.webp" width="32%" alt="BarberBook mobile interface" />
+</p>
+
+Additional real demo views are available in [docs/screenshots/](docs/screenshots/), including the confirmed booking, client portal, and dark theme. The capture process and review requirements are documented in [docs/screenshots/README.md](docs/screenshots/README.md).
 
 ## Highlights
 
