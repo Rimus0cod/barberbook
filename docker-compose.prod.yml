@@ -108,6 +108,18 @@ services:
     command: ["npm", "run", "start:worker"]
     volumes:
       - ./ops/backup-state:/var/lib/barberbook/backup-state:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const fs=require('fs');const ok=fs.readdirSync('/proc').filter(name=>/^\\d+$/.test(name)).some(pid=>{try{return fs.readFileSync('/proc/'+pid+'/cmdline','utf8').includes('dist/worker.js')}catch{return false}});process.exit(ok?0:1);",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   backup:
     image: postgres:15-alpine
