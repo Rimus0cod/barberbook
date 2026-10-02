@@ -2,7 +2,7 @@
 
 ## Current status
 
-The app has a production Compose stack and a repeatable demo seed. The laptop-hosted showcase uses Stripe test mode and a temporary localhost.run HTTPS URL. It is a best-effort demo, not an uptime-guaranteed production service; the free URL can change when the tunnel reconnects. Never work around the production guard by setting `NODE_ENV=test` or weakening environment validation.
+The app has a production Compose stack and a repeatable demo seed. The laptop-hosted showcase uses Stripe test mode and an account-authenticated localhost.run HTTPS URL. It is a best-effort demo, not an uptime-guaranteed production service; the laptop and tunnel provider must remain available, and the provider may rotate free hostnames. Never work around the production guard by setting `NODE_ENV=test` or weakening environment validation.
 
 The tunnel overlay publishes the app's TLS listener only on `127.0.0.1:18443` and adds a loopback-only HTTP proxy at `127.0.0.1:18480` for localhost.run's TLS-terminating tunnel. The proxy forwards to the app's TLS listener inside the isolated Compose network. Existing laptop services on ports 80/443 are untouched.
 
@@ -22,13 +22,17 @@ openssl req -x509 -nodes -newkey rsa:2048 \
   -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 ```
 
-Start the Compose services with the commands below, then start the SSH tunnel in a separate terminal and leave it running:
+Create a localhost.run account and add a dedicated SSH public key to it. Keep the matching private key on the laptop; do not use the anonymous `nokey` account if you want the hostname reused between reconnects. Start the Compose services with the commands below, then start the SSH tunnel in a separate terminal and leave it running:
 
 ```bash
-ssh -o ServerAliveInterval=60 -R 80:127.0.0.1:18480 nokey@localhost.run
+ssh -i ~/.ssh/barberbook-localhostrun \
+  -o IdentitiesOnly=yes \
+  -o ServerAliveInterval=60 \
+  -o ServerAliveCountMax=3 \
+  -R 80:127.0.0.1:18480 localhost.run
 ```
 
-Copy the printed `https://<name>.lhr.life` URL. Create `.env.production` with restrictive permissions (`chmod 600`) and set both `FRONTEND_URL` and `BACKEND_PUBLIC_URL` to that exact URL. Use Stripe **test-mode** `sk_test_`, `pk_test_`, and webhook signing secret values only. In the Stripe Dashboard with Test mode enabled, add a webhook endpoint at `<URL>/api/v1/payments/webhooks/stripe` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`, and `payment_intent.canceled`; put its `whsec_` secret in `.env.production`. Do not put payment keys in shell history, source control, README, or this document.
+Copy the printed `https://<name>.lhr.life` URL. Create `.env.production` with restrictive permissions (`chmod 600`) and set both `FRONTEND_URL` and `BACKEND_PUBLIC_URL` to that exact URL. Use Stripe **test-mode** `sk_test_`, `pk_test_`, and webhook signing secret values only. In the Stripe Dashboard with Test mode enabled, add a webhook endpoint at `<URL>/api/v1/payments/webhooks/stripe` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`, and `payment_intent.canceled`; put its `whsec_` secret in `.env.production`. When editing a deployed endpoint URL, keep the same Stripe endpoint so its signing secret remains valid. Do not put payment keys in shell history, source control, README, or this document.
 
 Apply the existing migration and demo seed, then start the isolated production project. The override binds both tunnel endpoints to loopback and does not replace or reconfigure another service:
 
