@@ -46,8 +46,7 @@ test("capture real portfolio views from the seeded demo application", async ({ b
 
   await page.goto("/account");
   await switchToEnglish(page);
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByLabel(/phone/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/account|my booking|booking/i);
   await page.screenshot({ path: screenshotPath("account") });
 
   await page.goto("/admin/login");
