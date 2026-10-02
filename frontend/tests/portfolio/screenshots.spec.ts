@@ -54,7 +54,7 @@ test("capture real portfolio views from the seeded demo application", async ({ b
   await page.getByPlaceholder(/password from backend\/\.env/i).fill("e2e-local-only-admin-password");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/admin$/);
-  const dashboardDate = page.locator("main input[type=date]");
+  const dashboardDate = page.locator('input[name="date"]').first();
   await dashboardDate.fill(appointmentDateForAdmin);
   await expect(page.getByText("Portfolio Demo Client")).toBeVisible();
   await expect(page.getByText(/Total bookings: 1\./)).toBeVisible();
