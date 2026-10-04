@@ -5,6 +5,7 @@ import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
 import { getContent } from "../../lib/content";
 import { usePreferencesStore } from "../../store/preferencesStore";
+import { isDemoMode } from "../../lib/api-client";
 
 export function ClientShell({ children }: PropsWithChildren) {
   const language = usePreferencesStore((state) => state.language);
@@ -19,6 +20,11 @@ export function ClientShell({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-screen">
+      {isDemoMode ? (
+        <div className="bg-brand-olive px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-white">
+          Portfolio demo · sample data · no real booking or payment
+        </div>
+      ) : null}
       <header className="sticky top-0 z-20 border-b border-brand-line/10 bg-brand-cream/84 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center justify-between gap-3">
