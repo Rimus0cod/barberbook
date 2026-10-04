@@ -1,12 +1,16 @@
 import axios, { AxiosHeaders } from "axios";
+import { demoAdapter } from "./demo-api";
 
 const UNSAFE_METHODS = new Set(["post", "put", "patch", "delete"]);
 const CSRF_COOKIE_NAME = "csrf_token";
 const CSRF_HEADER_NAME = "X-CSRF-Token";
 
+export const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "/api/v1",
-  withCredentials: true,
+  baseURL: isDemoMode ? undefined : import.meta.env.VITE_API_URL ?? "/api/v1",
+  withCredentials: !isDemoMode,
+  adapter: isDemoMode ? demoAdapter : undefined,
 });
 
 export async function prepareAdminCsrfToken() {
